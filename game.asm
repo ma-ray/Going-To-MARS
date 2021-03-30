@@ -34,8 +34,38 @@
 #
 #####################################################################
 
+.eqv BASE_ADDRESS	0x10008000
+
+.data
+
+.text
+.globl main
+
+# draw_obstacle(obs_array) loop through the array and draw the obastacle on the screen
+draw_obstacle:
+	# pop off the stack
+	lw $t0, 0($sp)		# pop y off the stack
+	addi $sp, $sp, 4
+	lw $t1, 0($sp)		# pop x off the stack
 
 
+	li $t3, 0xa7a7a7	# light gray colour
+	li $t4, 0x6f6f6f	# gray colour
+
+main:
+	li $t0, BASE_ADDRESS	# $t1 will store the base address
+	
+
+
+	# First let's render the 1st obstacle at (30,1)
+	sw $t1, 248($t0)
+	sw $t2, 120($t0)
+	sw $t2, 376($t0)
+	sw $t2, 252($t0)
+	sw $t2, 244($t0)
+
+	li $v0, 10	# terminate the program gracfully
+	syscall
 
 
 
