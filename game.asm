@@ -32,16 +32,20 @@
 # Any additional information that the TA needs to know: 
 # - (write here, if any)
 #
-#####################################################################
-# first mini goal array of 3 obstacles with random locations	
+#####################################################################	
 .eqv BASE_ADDRESS	0x10008000
 
 .eqv GREY		0x6f6f6f
 .eqv LIGHT_GREY		0xa7a7a7
+.eqv ORANGE		0xfd9825
+.eqv BLUE		0x006dff
+.eqv YELLOW		0xe3e70f
 
 .data
 OBS_LIST:	.word 0:3
 POS:		.word 0
+SHIP_LOC:	.word 4, 15	# 0: x coord 1: y coord  (4, 15 is the intial starting location)
+
 .text
 .globl main
 
@@ -175,7 +179,41 @@ update_array_loop:
 	
 update_array_end: jr $ra
 
-
+draw_ship:
+	la $t0, BASE_ADDRESS	# $t0 = address of framebuffer
+	la $t1, SHIP_LOC	# $t1 = address of the ship
+	lw $t2, 0($t1)		# $t2 = x coord of ship
+	lw $t3, 4($t1)		# $t3 = y coord of ship
+	
+	# CALCULATE THE PIXEL LOCATION OF SHIP
+	sll $t2, $t2, 2		# $t2 = 4x
+	sll $t3, $t3, 7		# $t3 = 128y
+	add $t1, $t2, $t3	# $t1 = offset of frame buffer verison of location
+	add $t1, $t1, $t0	# $t1 = frame buffer verison of location
+	
+	# LOAD COLOURS NEEDED FOR SHIP
+	li $t4, YELLOW
+	li $t5, ORANGE
+	li $t6, BLUE
+	
+	# DRAWING THE SHIP
+	sw $t6, 0($t1)		# draw main pixel to screen
+	sw $t4, -4($t1)
+	sw $t6, -8($t1)
+	sw $t6, -12($t1)
+	sw $t5, -16($t1)
+	sw $t6, -132($t1)
+	sw $t6, 124($t1)
+	sw $t6, -136($t1)
+	sw $t6, -140($t1)
+	sw $t5, -144($t1)
+	sw $t6, 120($t1)
+	sw $t6, 116($t1)
+	sw $t5, 112($t1)
+	sw $t6, -268($t1)
+	sw $t6, 244($t1)
+	
+	jr $ra
 
 main:
 	
@@ -184,8 +222,9 @@ GAME_LOOP:
 	jal gen_array		# check if obstacles have reached the end of the screen
 	jal clear_obs		# erase the old obstacles
 	jal update_array	# move the obstacles by 1 unit to the left
-	
-	jal draw_array		# draw the obstacles agains			 
+	jal draw_array		# draw the obstacles agains
+			
+	jal draw_ship		# draw the ship	 
 
 SLEEP:	# sleep for 40ms the  refresh rate
 	li $v0, 32
