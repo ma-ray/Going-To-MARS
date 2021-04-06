@@ -213,12 +213,65 @@ draw_ship:
 	sw $t6, -268($t1)
 	sw $t6, 244($t1)
 	
-	jr $ra
-
-main:
+	jr $ra			# return to the caller
 	
+update_ship:
+	# GET THE KEYBOARD INPUT
+	li $t3, 0xffff0000		# load addrress of keypress
+	lw $t4, ($t3)			# load if key was pressed
+	bne $t1, 1, update_ship_end	# if key not pressed jump to SLEEP
+	lw $t3, 4($t3)			# otherwise load the button that was pressed
+	
+	# LOAD SHIP COORDS
+	la $t0, SHIP_LOC		# $t0 = address of ship
+	lw $t1, 0($t0)			# $t1 = x coord of ship
+	lw $t2, 4($t0)			# $t2 = y coord of ship
+	
+	# DETERMINE WHICH DIRECTION IT IS GOING
+	beq $t3, 119, GO_UP		# if W was pressed
+	beq $t3, 97, GO_LEFT		# if A was pressed
+	beq $t3, 115, GO_DOWN		# if D was pressed
+	beq $t3, 100, GO_RIGHT		# if S was pressed
+	jr $ra				# otherwise return to caller
+	
+GO_UP:	addi $t2, $t2, 1		# y = y + 1
+	j update_ship_array
+	
+GO_LEFT:
+	addi $t1, $t1, -1		# x = x - 1
+	j update_ship_array
+	
+GO_DOWN:	
+	addi $t2, $t2, -1		# y = y + 1
+	j update_ship_array
+	
+GO_RIGHT:
+	addi $t1, $t1, 1		# x = x + 1
+	
+update_ship_array:
+	# CHECK IF THE CHANGES ARE OUT OF BOUNDS
+	#  if x < 4 or x > 31 return to caller
+	blt $t1, 4, update_ship_end
+	bgt $t1, 31, update_ship_end
+	
+	# if y < 2 or y > 29 return to caller
+	blt $t2, 2, update_ship_end
+	bgt $t2, 29, update_ship_end
+	
+	# load coordinates back to array
+	lw $t1, 0($t0)
+	lw $t2, 4($t0)
+
+update_ship_end:
+	jr $ra
+	
+main:
+	jal draw_ship
 GAME_LOOP:
 	#beq $t1, $zero, END	# if lives are 0 then jump to END
+				# clear ship here ?????
+	jal update_ship		# check user input
+	
 	jal gen_array		# check if obstacles have reached the end of the screen
 	jal clear_obs		# erase the old obstacles
 	jal update_array	# move the obstacles by 1 unit to the left
