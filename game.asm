@@ -215,11 +215,45 @@ draw_ship:
 	
 	jr $ra			# return to the caller
 	
+clear_ship:
+	la $t0, BASE_ADDRESS	# $t0 = address of framebuffer
+	la $t1, SHIP_LOC	# $t1 = address of the ship
+	lw $t2, 0($t1)		# $t2 = x coord of ship
+	lw $t3, 4($t1)		# $t3 = y coord of ship
+	
+	# CALCULATE THE PIXEL LOCATION OF SHIP
+	sll $t2, $t2, 2		# $t2 = 4x
+	sll $t3, $t3, 7		# $t3 = 128y
+	add $t1, $t2, $t3	# $t1 = offset of frame buffer verison of location
+	add $t1, $t1, $t0	# $t1 = frame buffer verison of location
+	
+	# LOAD COLOURS NEEDED FOR SHIP
+	li $t6, 0
+	
+	# DRAWING THE SHIP
+	sw $t6, 0($t1)		# draw main pixel to screen
+	sw $t6, -4($t1)
+	sw $t6, -8($t1)
+	sw $t6, -12($t1)
+	sw $t6, -16($t1)
+	sw $t6, -132($t1)
+	sw $t6, 124($t1)
+	sw $t6, -136($t1)
+	sw $t6, -140($t1)
+	sw $t6, -144($t1)
+	sw $t6, 120($t1)
+	sw $t6, 116($t1)
+	sw $t6, 112($t1)
+	sw $t6, -268($t1)
+	sw $t6, 244($t1)
+	
+	jr $ra			# return to the caller
+	
 update_ship:
 	# GET THE KEYBOARD INPUT
 	li $t3, 0xffff0000		# load addrress of keypress
 	lw $t4, ($t3)			# load if key was pressed
-	bne $t1, 1, update_ship_end	# if key not pressed jump to SLEEP
+	bne $t4, 1, update_ship_end	# if key not pressed jump to SLEEP
 	lw $t3, 4($t3)			# otherwise load the button that was pressed
 	
 	# LOAD SHIP COORDS
@@ -234,19 +268,19 @@ update_ship:
 	beq $t3, 100, GO_RIGHT		# if S was pressed
 	jr $ra				# otherwise return to caller
 	
-GO_UP:	addi $t2, $t2, 1		# y = y + 1
+GO_UP:	addi $t2, $t2, -2		# y = y - 1
 	j update_ship_array
 	
 GO_LEFT:
-	addi $t1, $t1, -1		# x = x - 1
+	addi $t1, $t1, -2		# x = x - 1
 	j update_ship_array
 	
 GO_DOWN:	
-	addi $t2, $t2, -1		# y = y + 1
+	addi $t2, $t2, 2	# y = y + 1
 	j update_ship_array
 	
 GO_RIGHT:
-	addi $t1, $t1, 1		# x = x + 1
+	addi $t1, $t1, 2	# x = x + 1
 	
 update_ship_array:
 	# CHECK IF THE CHANGES ARE OUT OF BOUNDS
@@ -259,8 +293,8 @@ update_ship_array:
 	bgt $t2, 29, update_ship_end
 	
 	# load coordinates back to array
-	lw $t1, 0($t0)
-	lw $t2, 4($t0)
+	sw $t1, 0($t0)
+	sw $t2, 4($t0)
 
 update_ship_end:
 	jr $ra
@@ -269,7 +303,7 @@ main:
 	jal draw_ship
 GAME_LOOP:
 	#beq $t1, $zero, END	# if lives are 0 then jump to END
-				# clear ship here ?????
+	jal clear_ship		# clear ship here ?????
 	jal update_ship		# check user input
 	
 	jal gen_array		# check if obstacles have reached the end of the screen
