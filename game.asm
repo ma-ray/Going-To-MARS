@@ -42,11 +42,12 @@
 .eqv BLUE		0x006dff
 .eqv YELLOW		0xe3e70f
 
-.eqv SMALL_OBS_SIZE	3
+.eqv SMALL_OBS_SIZE	4
 
 .data
-SMALL_OBS_LIST:	.word -5,0,-5,0,-5,0	# array of (x,y), (x,y), (x,y)
 SHIP_LOC:	.word 4, 15	# 0: x coord 1: y coord  (4, 15 is the intial starting location)
+SMALL_OBS_LIST:	.word -5,0,-5,0,-5,0,-5,0,-5,0,-5,0	# array of (x,y), (x,y), (x,y)
+
 
 .text
 .globl main
@@ -57,6 +58,9 @@ update_obs:
 	
 update_obs_loop:
 	bge $t1, SMALL_OBS_SIZE, update_obs_end
+	#li $t7, 8			# calculate the offset
+	#mult $t1, $t7
+	#mflo $t4
 	sll $t4, $t1, 3		# offset for ith element in array
 	add $t0, $t0, $t4	# $t0 = array[i]
 	
