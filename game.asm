@@ -179,6 +179,8 @@ update_array_loop:
 	
 update_array_end: jr $ra
 
+## Pass in a number (1 or 0) to $a0. if 1, draw the ship. Otherwise, clear the ship
+## Use the register based calling convention
 draw_ship:
 	la $t0, BASE_ADDRESS	# $t0 = address of framebuffer
 	la $t1, SHIP_LOC	# $t1 = address of the ship
@@ -192,10 +194,18 @@ draw_ship:
 	add $t1, $t1, $t0	# $t1 = frame buffer verison of location
 	
 	# LOAD COLOURS NEEDED FOR SHIP
+	beq $a0, 0, clear_ship	# if value passed in is 0, clear the ship
 	li $t4, YELLOW
 	li $t5, ORANGE
 	li $t6, BLUE
+	j render_ship
 	
+clear_ship:
+	li $t4, 0x000000
+	li $t5, 0x000000
+	li $t6, 0x000000
+	
+render_ship:	
 	# DRAWING THE SHIP
 	sw $t6, 0($t1)		# draw main pixel to screen
 	sw $t4, -4($t1)
@@ -210,40 +220,6 @@ draw_ship:
 	sw $t6, 120($t1)
 	sw $t6, 116($t1)
 	sw $t5, 112($t1)
-	sw $t6, -268($t1)
-	sw $t6, 244($t1)
-	
-	jr $ra			# return to the caller
-	
-clear_ship:
-	la $t0, BASE_ADDRESS	# $t0 = address of framebuffer
-	la $t1, SHIP_LOC	# $t1 = address of the ship
-	lw $t2, 0($t1)		# $t2 = x coord of ship
-	lw $t3, 4($t1)		# $t3 = y coord of ship
-	
-	# CALCULATE THE PIXEL LOCATION OF SHIP
-	sll $t2, $t2, 2		# $t2 = 4x
-	sll $t3, $t3, 7		# $t3 = 128y
-	add $t1, $t2, $t3	# $t1 = offset of frame buffer verison of location
-	add $t1, $t1, $t0	# $t1 = frame buffer verison of location
-	
-	# LOAD COLOURS NEEDED FOR SHIP
-	li $t6, 0
-	
-	# DRAWING THE SHIP
-	sw $t6, 0($t1)		# draw main pixel to screen
-	sw $t6, -4($t1)
-	sw $t6, -8($t1)
-	sw $t6, -12($t1)
-	sw $t6, -16($t1)
-	sw $t6, -132($t1)
-	sw $t6, 124($t1)
-	sw $t6, -136($t1)
-	sw $t6, -140($t1)
-	sw $t6, -144($t1)
-	sw $t6, 120($t1)
-	sw $t6, 116($t1)
-	sw $t6, 112($t1)
 	sw $t6, -268($t1)
 	sw $t6, 244($t1)
 	
@@ -310,8 +286,12 @@ GAME_LOOP:
 	jal update_array	# move the obstacles by 1 unit to the left
 	jal draw_array		# draw the obstacles agains
 	
-	jal clear_ship		# clear ship here ?????
+	li $a0, 0		# call draw_ship(0)
+	jal draw_ship		
+
 	jal update_ship		# check user input
+	
+	li $a0, 1		# call draw_ship(1)
 	jal draw_ship		# draw the ship	 
 
 SLEEP:	# sleep for 40ms the  refresh rate
