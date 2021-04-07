@@ -15,9 +15,9 @@ START:	bge $t1, $t0, END
 	sw $t3, 0($t2)
 	addi $t2, $t2, 4
 	# invoke sleep system call
-	li $v0, 32 
-	li $a0, 10 # Wait one second (1000 milliseconds) 
-	syscall
+	#li $v0, 32 
+	#li $a0, 10 # Wait one second (1000 milliseconds) 
+	#syscall
 	addi $t1, $t1, 1
 	j START
 	

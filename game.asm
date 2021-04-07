@@ -35,6 +35,7 @@
 #####################################################################	
 .eqv BASE_ADDRESS	0x10008000
 
+.eqv BLACK		0x000000
 .eqv GREY		0x6f6f6f
 .eqv LIGHT_GREY		0xa7a7a7
 .eqv ORANGE		0xfd9825
@@ -56,9 +57,8 @@ draw_obstacle:
 	addi $sp, $sp, 4
 	lw $t1, 0($sp)		# pop x off the stack
 
-
-	li $t3, 0xa7a7a7	# light gray colour
-	li $t4, 0x6f6f6f	# gray colour
+	li $t3, GREY		# light gray colour
+	li $t4, LIGHT_GREY	# gray colour
 	
 gen_array:
 	la $t0, OBS_LIST	# load address of obstacle array
@@ -80,6 +80,7 @@ gen_array:
 	addi $sp, $sp, 4
 	
 	la $t0, OBS_LIST	# load address of obstacle array
+	
 gen_array_loop:	
 	bge $t1, 3, gen_array_end
 	sll $t2, $t1, 2		# $t2 = current offset
@@ -201,9 +202,9 @@ draw_ship:
 	j render_ship
 	
 clear_ship:
-	li $t4, 0x000000
-	li $t5, 0x000000
-	li $t6, 0x000000
+	li $t4, BLACK
+	li $t5, BLACK
+	li $t6, BLACK
 	
 render_ship:	
 	# DRAWING THE SHIP
@@ -242,6 +243,7 @@ update_ship:
 	beq $t3, 97, GO_LEFT		# if A was pressed
 	beq $t3, 115, GO_DOWN		# if D was pressed
 	beq $t3, 100, GO_RIGHT		# if S was pressed
+	#beq $t3, 112, RESTART		# if P was pressed
 	jr $ra				# otherwise return to caller
 	
 GO_UP:	addi $t2, $t2, -2		# y = y - 1
@@ -275,12 +277,31 @@ update_ship_array:
 update_ship_end:
 	jr $ra
 	
+# reset all values
+RESTART:
+	j main
+	
+# clear the whole screen to black
+clear_screen:
+	la $t0, BASE_ADDRESS
+	li $t1, BLACK
+	li $t2, 0		# the iterator
+	
+clear_screen_loop:
+	bge $t2, 1024, clear_screen_end
+	sw $t1, 0($t0)		# set the pixel to black
+	addi $t0, $t0, 4	# update pixel location
+	addi $t2, $t2, 1	# update iterator: i = i + 1
+	j clear_screen_loop		
+
+clear_screen_end:
+	jr $ra
+	
 main:
+	jal clear_screen
 	jal draw_ship
 GAME_LOOP:
 	#beq $t1, $zero, END	# if lives are 0 then jump to END
-	
-	
 	jal gen_array		# check if obstacles have reached the end of the screen
 	jal clear_obs		# erase the old obstacles
 	jal update_array	# move the obstacles by 1 unit to the left
