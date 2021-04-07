@@ -303,14 +303,15 @@ main:
 	jal draw_ship
 GAME_LOOP:
 	#beq $t1, $zero, END	# if lives are 0 then jump to END
-	jal clear_ship		# clear ship here ?????
-	jal update_ship		# check user input
+	
 	
 	jal gen_array		# check if obstacles have reached the end of the screen
 	jal clear_obs		# erase the old obstacles
 	jal update_array	# move the obstacles by 1 unit to the left
 	jal draw_array		# draw the obstacles agains
-			
+	
+	jal clear_ship		# clear ship here ?????
+	jal update_ship		# check user input
 	jal draw_ship		# draw the ship	 
 
 SLEEP:	# sleep for 40ms the  refresh rate
