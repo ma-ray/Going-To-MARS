@@ -42,143 +42,171 @@
 .eqv BLUE		0x006dff
 .eqv YELLOW		0xe3e70f
 
+.eqv SMALL_OBS_SIZE	3
+
 .data
-OBS_LIST:	.word 0:3
-POS:		.word 0
+SMALL_OBS_LIST:	.word -5,0,-5,0,-5,0	# array of (x,y), (x,y), (x,y)
 SHIP_LOC:	.word 4, 15	# 0: x coord 1: y coord  (4, 15 is the intial starting location)
 
 .text
 .globl main
 
-# draw_obstacle(obs_array) loop through the array and draw the obastacle on the screen
-draw_obstacle:
-	# pop off the stack
-	lw $t0, 0($sp)		# pop y off the stack
-	addi $sp, $sp, 4
-	lw $t1, 0($sp)		# pop x off the stack
-
-	li $t3, GREY		# light gray colour
-	li $t4, LIGHT_GREY	# gray colour
+update_obs:
+	la $t0, SMALL_OBS_LIST	# load the address to obs_list
+	li $t1, 0		# $t1 = iterator = 0
 	
-gen_array:
-	la $t0, OBS_LIST	# load address of obstacle array
-	li $t1, 0		# set the iterator to 0
+update_obs_loop:
+	bge $t1, SMALL_OBS_SIZE, update_obs_end
+	sll $t4, $t1, 3		# offset for ith element in array
+	add $t0, $t0, $t4	# $t0 = array[i]
 	
-	la $t7, POS		# load pos of obstacles
-	lw $t6, 0($t7)
-	beq $t6, 0, gen_array_loop	# for initial entry to game loop, generate locations for obs
+	lw $t2, 0($t0)		# $t2 = current x
+	lw $t3, 4($t0)		# $t3 = current y
 	
-	bne $t6, 29, gen_array_end	# if pos has not reached the left side return to main. otherwise, generate new locations
-	sw $zero, 0($t7)	# reset the counter at 0
-	
-	addi $sp, $sp, -4	# push $ra to stack
+	## CALLING draw_obs(x,y,0)
+	# SAVING VARIABLES: $t0, $t1
+	addi $sp, $sp, -4
+	sw $t0, 0($sp)
+	addi $sp, $sp, -4
+	sw $t1, 0($sp)
+	addi $sp, $sp, -4	# save $ra on the stack
 	sw $ra, 0($sp)
+	# PUSH ARGUMENTS TO THE STACK
+	addi $sp, $sp, -4
+	sw $t2, 0($sp)		# push the x to the stack
+	addi $sp, $sp, -4
+	sw $t3, 0($sp)		# push y to the stack
+	addi $sp, $sp, -4
+	li $t7, 0		# set $t7 = 0 and then push to stack
+	sw $t7, 0($sp)
 	
-	jal clear_obs		# clear the obs by calling clear_obs
+	jal draw_obs
 	
-	lw $ra, 0($sp)		# restore the return address
+	lw $ra, 0($sp)		# restore $ra
 	addi $sp, $sp, 4
+	lw $t1, 0($sp)		# restore $t1	
+	addi $sp, $sp, 4
+	lw $t0, 0($sp)		# restore $t0
+	addi $sp, $sp, 4
+				# restore
+	lw $t2, 0($t0)		# $t2 = current x
+	lw $t3, 4($t0)		# $t3 = current y
 	
-	la $t0, OBS_LIST	# load address of obstacle array
-	
-gen_array_loop:	
-	bge $t1, 3, gen_array_end
-	sll $t2, $t1, 2		# $t2 = current offset
-	add $t3, $t0, $t2, 	# $t3 = address of array[i]
-	
-	# generate random number from 0 to 29 and the increment by 1 to get range 1 <= num <= 30
+	bgt $t2, -3, add_obs	# if the obs is not off the screen skip generating new location
+	#### GENERATE NEW COORDINATES
+	## GENERATE NEW X BETWEEN 32 AND 48 INCLUSIVE (SHIFTED FOR SYSCALL 0 <= X < 17)
 	li $v0, 42
 	li $a0, 0
-	li $a1, 30
+	li $a1, 17
 	syscall
+	move $t2, $a0		# move random value to $t2
+	addi $t2, $t2, 32	# add 16 to it to acheive 32 AND 48 INCLUSIVE
+	sw $t2, 0($t0)		# store in array
 	
-	addi $t4, $a0, 1	# get range 1 <= y <= 30
-	li $t5, 128		# $t5 = 128
-	mult $t5, $t4		
-	mflo $t4		# $t4 = y * 128 
-	addi $t4, $t4, 120	# $t4 = the address of (30, y)
-	
-	sw $t4, 0($t3)		# store the coords to array[i]
-	addi $t1, $t1, 1	# update the iterator i = i + 1
-	j gen_array_loop	
-	
-gen_array_end:
-	jr $ra
-	
-draw_array:
-	li $t0, BASE_ADDRESS
-	la $t2, OBS_LIST
-	li $t3, 0		# iterator = 0
-	li $t6, GREY		# $t6 = GREY
-	li $t7, LIGHT_GREY	# $t7 = LIGHT GREY
-	
-draw_array_loop:
-	bge $t3 3, draw_array_end
-	sll $t4, $t3, 2		# $t4 = i * 4 (offset)
-	add $t4, $t4, $t2	# $t4 = address of array[i]
-	lw $t4, 0($t4)		# $t4 = array[i]
-	add $t5, $t0, $t4	# load address of the pixel
-	
-	#### DRAWING THE OBSTACLE SPRITE
-	sw $t6, -128($t5)	# top pixel is grey
-	sw $t7, 0($t5)		# middle pixel is light grey
-	sw $t6, 128($t5)	# down pixel is grey
-	sw $t6, -4($t5)		# left pixel is grey
-	sw $t6, 4($t5)		# right pixel is grey
+	## GENERATE NEW Y BETWEEN 1 AND 30 INCLUSIVE
+	li $v0, 42
+	li $a0, 0
+	li $a1, 29
+	syscall
+	move $t3, $a0		# move random value to $t3
+	addi $t3,$t3, 1		# add 1 to it to achieve 1 AND 30 INCLUSIVE
+	sw $t3, 4($t0)		# store in array
 	####
 	
-	addi $t3, $t3, 1	# update the iterator
-	j draw_array_loop
+add_obs:
+	addi $t2, $t2, -1	# set current x = x - 1
+	sw $t2, 0($t0)		# store in array[i]
 	
-draw_array_end: jr $ra
+	move $a0, $t2		# call draw_obs(x,y,1)
+	move $a1, $t3
+	li $a2, 1
+	
+	# call draw_obs(x,y,s)
+	# SAVING VARIABLES: $t0, $t1
+	addi $sp, $sp, -4
+	sw $t0, 0($sp)
+	addi $sp, $sp, -4
+	sw $t1, 0($sp)
+	addi $sp, $sp, -4	# save $ra on the stack
+	sw $ra, 0($sp)
+	# PUSH ARGUMENTS TO THE STACK
+	addi $sp, $sp, -4
+	sw $t2, 0($sp)		# push x to the stack
+	addi $sp, $sp, -4
+	sw $t3, 0($sp)		# push y to the stack
+	addi $sp, $sp, -4
+	li $t7, 1		# set $t7 = 1 and then push to stack
+	sw $t7, 0($sp)
+	
+	jal draw_obs
+	
+	lw $ra, 0($sp)		# restore $ra
+	addi $sp, $sp, 4
+	lw $t1, 0($sp)		# restore $t1	
+	addi $sp, $sp, 4
+	lw $t0, 0($sp)		# restore $t0
+	addi $sp, $sp, 4
+	
+	addi $t1, $t1, 1	# update the iterator
+	
+	j update_obs_loop
+	
+update_obs_end:
+	jr $ra		
+	
+# Pass in x,y,s. if s is 1, draw the obstacle. Otherwise, clear the obstacle
+# Uses stack calling convention
+draw_obs:
+	lw $t0, 0($sp)		# $t0, = s
+	addi $sp, $sp, 4
+	lw $t1, 0($sp)		# $t1, = y
+	addi $sp, $sp, 4
+	lw $t2, 0($sp)		# $t2, = x
+	addi $sp, $sp, 4
+	
+	bgt $t2, 31, draw_obs_end	# if x is not visible end function
+	
+	la $t4, BASE_ADDRESS	# $t4 = BASE_ADDRESS
+	
+	# CALCULATE THE PIXEL LOCATION OF SHIP
+	sll $t5, $t2, 2		# $t5 = 4x
+	sll $t6, $t1, 7		# $t6 = 128y
+	add $t5, $t5, $t6	# $t5 = offset of frame buffer verison of location
+	add $t4, $t4, $t5	# $t4 = frame buffer verison of location
+	
+	# LOAD COLOURS color1: $t5, color2: $t6
+	beq $t0, 0, wipe_obs
+	li $t5, GREY
+	li $t6, LIGHT_GREY
+	j paint_obs
+	
+wipe_obs:
+	li $t5, BLACK
+	li $t6, BLACK
+	
+paint_obs:
+	ble $t2, -1, paint_col_two
+	bge $t2, 32, paint_col_two
+	
+	sw $t5, 0($t4)
+paint_col_two:
+	addi $t4, $t4, 4		# shift to next column
+	addi $t2, $t2, 1
+	ble $t2, -1, paint_col_three
+	bge $t2, 32, paint_col_three
+	
+	sw $t5, -128($t4)
+	sw $t6, 0($t4)
+	sw $t5, 128($t4)
+paint_col_three:
+	addi $t4, $t4, 4		# shift to next column
+	addi $t2, $t2, 1
+	ble $t2, -1, draw_obs_end
+	bge $t2, 32, draw_obs_end
+	sw $t5, 0($t4)
 
-clear_obs:
-	li $t0, BASE_ADDRESS
-	la $t2, OBS_LIST
-	li $t3, 0		# iterator = 0
-	li $t6, 0		# $t6 = BLACK
-	
-clear_obs_loop:
-	bge $t3 3, clear_obs_end
-	sll $t4, $t3, 2		# $t4 = i * 4 (offset)
-	add $t4, $t4, $t2	# $t4 = address of array[i]
-	lw $t4, 0($t4)		# $t4 = array[i]
-	add $t5, $t0, $t4	# load address of the pixel
-	
-	#### CLEAR THE PREVIOUS OBSTACLE LOCATION
-	sw $t6, -128($t5)	# top pixel is black
-	sw $t6, 0($t5)		# middle pixel is black
-	sw $t6, 128($t5)	# down pixel is black
-	sw $t6, -4($t5)		# left pixel is black
-	sw $t6, 4($t5)		# right pixel is black
-	####
-	
-	addi $t3, $t3, 1	# update the iterator
-	j clear_obs_loop
-	
-clear_obs_end: jr $ra
-
-update_array:			# go through the locations and update its position by 1 unit to the left
-	la $t2, OBS_LIST
-	li $t3, 0		# iterator = 0
-	
-	la $t7, POS
-	lw $t6, 0($t7)
-	addi $t6, $t6, 1	
-	sw $t6, 0($t7)		# store back into POS
-	
-update_array_loop:
-	bge $t3 3, update_array_end
-	sll $t4, $t3, 2		# $t4 = i * 4 (offset)
-	add $t4, $t4, $t2	# $t4 = address of array[i]
-	lw $t5, 0($t4)		# $t5 = array[i]
-	addi $t5, $t5, -4	# move the location to the left by 1 unit
-	sw $t5, 0($t4)		# store it back into the array
-	
-	addi $t3, $t3, 1	# update the iterator
-	j update_array_loop
-	
-update_array_end: jr $ra
+draw_obs_end:
+	jr $ra			# return to caller
 
 ## Pass in a number (1 or 0) to $a0. if 1, draw the ship. Otherwise, clear the ship
 ## Use the register based calling convention
@@ -299,14 +327,13 @@ clear_screen_end:
 	
 main:
 	jal clear_screen
+	
+	li $a0, 1		# draw the ship
 	jal draw_ship
 GAME_LOOP:
 	#beq $t1, $zero, END	# if lives are 0 then jump to END
-	jal gen_array		# check if obstacles have reached the end of the screen
-	jal clear_obs		# erase the old obstacles
-	jal update_array	# move the obstacles by 1 unit to the left
-	jal draw_array		# draw the obstacles agains
-	
+
+	jal update_obs
 	li $a0, 0		# call draw_ship(0)
 	jal draw_ship		
 
