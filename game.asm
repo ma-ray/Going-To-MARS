@@ -41,11 +41,12 @@
 .eqv ORANGE		0xfd9825
 .eqv BLUE		0x006dff
 .eqv YELLOW		0xe3e70f
+.eqv RED		0xff0000
 
-.eqv SMALL_OBS_SIZE	3
+.eqv SMALL_OBS_SIZE	1
 
 .data
-SMALL_OBS_LIST:	.word -5,0,-6,0,-7,0	# array of (x,y), (x,y), (x,y)
+SMALL_OBS_LIST:	.word 5,15,-6,0,-7,0	# array of (x,y), (x,y), (x,y)
 SHIP_LOC:	.word 4, 15	# 0: x coord 1: y coord  (4, 15 is the intial starting location)
 
 .text
@@ -220,9 +221,16 @@ draw_ship:
 	
 	# LOAD COLOURS NEEDED FOR SHIP
 	beq $a0, 0, clear_ship	# if value passed in is 0, clear the ship
+	beq $a0, 2, hit_ship	# if value passed in is 2, render hit ship
 	li $t4, YELLOW
 	li $t5, ORANGE
 	li $t6, BLUE
+	j render_ship
+	
+hit_ship:
+	li $t4, YELLOW
+	li $t5, ORANGE
+	li $t6, RED
 	j render_ship
 	
 clear_ship:
@@ -301,6 +309,73 @@ update_ship_array:
 update_ship_end:
 	jr $ra
 	
+collision_check:
+	la $t0, SHIP_LOC	# load address of ship array
+	lw $t1, 4($t0)		# $t1 = ship's y
+	lw $t0, 0($t0)		# $t0 = ship's x
+	la $t2, SMALL_OBS_LIST	# $t2 = address of obstacle list
+	li $t3, 0		# $t3 = iterator = 0
+	
+collision_check_loop:
+	bge $t3, SMALL_OBS_SIZE, collision_check_end	# while i <= 3
+	sll $t4, $t3, 3		# the offset size
+	add $t4, $t4, $t2	# $t4 = address of obs_array[i]
+	lw $t5, 4($t4)		# $t5 = obstacle's y coords
+	lw $t4, 0($t4)		# $t4 = obstacles's x coords
+	
+	## CHECK IF OBSTASCLE IS INBOUNDS OF SHIP
+	bne $t4, $t0, collision_check_update
+	bne $t5, $t1, collision_check_update
+	
+collision_hit:
+	# save $t0, $t1, $t2, $t3 to the stack
+	addi $sp, $sp, -4	# save $t0
+	sw $t0, 0($sp)
+	addi $sp, $sp, -4	# save $t1
+	sw $t1, 0($sp)
+	addi $sp, $sp, -4	# save $t2
+	sw $t2, 0($sp)
+	addi $sp, $sp, -4	# save $t3
+	sw $t3, 0($sp)
+	addi $sp, $sp, -4	# save $ra
+	sw $ra, 0($sp)
+	
+	li $a0, 2		# call draw_ship(2)
+	jal draw_ship
+	
+	lw $ra, 0($sp)		# restore $ra
+	addi $sp, $sp, 4
+	lw $t3, 0($sp)		# restore $t3
+	addi $sp, $sp, 4
+	lw $t2, 0($sp)		# restore $t2
+	addi $sp, $sp, 4
+	lw $t1, 0($sp)		# restore $t1
+	addi $sp, $sp, 4
+	lw $t0, 0($sp)		# restore $t0
+	addi $sp, $sp, 4
+	
+	# invoke sleep for 0.25 seconds
+	li $v0, 32
+	li $a0, 250
+	syscall
+	
+collision_check_update:
+	addi $t3, $t3, 1	# i = i + 1
+	j collision_check_loop	# jump back to while conditoin
+	
+collision_check_end:
+	addi $sp, $sp, -4	# save $ra
+	sw $ra, 0($sp)
+
+	# call draw_ship(1)
+	li $a0, 1		# call draw_ship(1)
+	jal draw_ship
+	
+	lw $ra, 0($sp)		# restore $ra
+	addi $sp, $sp, 4
+
+	jr $ra
+	
 # reset all values
 RESTART:
 	j main
@@ -330,13 +405,17 @@ GAME_LOOP:
 	#beq $t1, $zero, END	# if lives are 0 then jump to END
 
 	jal update_obs
+	
 	li $a0, 0		# call draw_ship(0)
-	jal draw_ship		
-
+	jal draw_ship
+	
 	jal update_ship		# check user input
 	
-	li $a0, 1		# call draw_ship(1)
-	jal draw_ship		# draw the ship	 
+	## NEW FUNCTION CALLED CHECK COLLISION will call draw_ship(2) if hit obstacle. draw_ship(1) otherwise
+	jal collision_check
+	
+	#li $a0, 1		# call draw_ship(1)
+	#jal draw_ship		# draw the ship	 
 
 SLEEP:	# sleep for 40ms the  refresh rate
 	li $v0, 32
