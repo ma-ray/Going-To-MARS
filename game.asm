@@ -42,12 +42,11 @@
 .eqv BLUE		0x006dff
 .eqv YELLOW		0xe3e70f
 
-.eqv SMALL_OBS_SIZE	4
+.eqv SMALL_OBS_SIZE	3
 
 .data
+SMALL_OBS_LIST:	.word -5,0,-6,0,-7,0	# array of (x,y), (x,y), (x,y)
 SHIP_LOC:	.word 4, 15	# 0: x coord 1: y coord  (4, 15 is the intial starting location)
-SMALL_OBS_LIST:	.word -5,0,-5,0,-5,0,-5,0,-5,0,-5,0	# array of (x,y), (x,y), (x,y)
-
 
 .text
 .globl main
@@ -151,6 +150,7 @@ add_obs:
 	lw $t0, 0($sp)		# restore $t0
 	addi $sp, $sp, 4
 	
+	la $t0, SMALL_OBS_LIST	# reload obstacle list
 	addi $t1, $t1, 1	# update the iterator
 	
 	j update_obs_loop
