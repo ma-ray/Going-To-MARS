@@ -52,14 +52,12 @@ SHIP_LOC:	.word 4, 15	# 0: x coord 1: y coord  (4, 15 is the intial starting loc
 .globl main
 
 update_obs:
-	la $t0, SMALL_OBS_LIST	# load the address to obs_list
+	
 	li $t1, 0		# $t1 = iterator = 0
 	
 update_obs_loop:
 	bge $t1, SMALL_OBS_SIZE, update_obs_end
-	#li $t7, 8			# calculate the offset
-	#mult $t1, $t7
-	#mflo $t4
+	la $t0, SMALL_OBS_LIST	# load the address to obs_list
 	sll $t4, $t1, 3		# offset for ith element in array
 	add $t0, $t0, $t4	# $t0 = array[i]
 	
@@ -68,7 +66,7 @@ update_obs_loop:
 	
 	## CALLING draw_obs(x,y,0)
 	# SAVING VARIABLES: $t0, $t1
-	addi $sp, $sp, -4
+	addi $sp, $sp, -4	# save $t0 to the stack
 	sw $t0, 0($sp)
 	addi $sp, $sp, -4
 	sw $t1, 0($sp)
@@ -91,9 +89,8 @@ update_obs_loop:
 	addi $sp, $sp, 4
 	lw $t0, 0($sp)		# restore $t0
 	addi $sp, $sp, 4
-				# restore
-	lw $t2, 0($t0)		# $t2 = current x
-	lw $t3, 4($t0)		# $t3 = current y
+	lw $t2, 0($t0)		# restore $t2 = current x
+	lw $t3, 4($t0)		# restore $t3 = current y
 	
 	bgt $t2, -3, add_obs	# if the obs is not off the screen skip generating new location
 	#### GENERATE NEW COORDINATES
@@ -125,9 +122,7 @@ add_obs:
 	li $a2, 1
 	
 	# call draw_obs(x,y,s)
-	# SAVING VARIABLES: $t0, $t1
-	addi $sp, $sp, -4
-	sw $t0, 0($sp)
+	# SAVING VARIABLES: $t1
 	addi $sp, $sp, -4
 	sw $t1, 0($sp)
 	addi $sp, $sp, -4	# save $ra on the stack
@@ -147,10 +142,7 @@ add_obs:
 	addi $sp, $sp, 4
 	lw $t1, 0($sp)		# restore $t1	
 	addi $sp, $sp, 4
-	lw $t0, 0($sp)		# restore $t0
-	addi $sp, $sp, 4
 	
-	la $t0, SMALL_OBS_LIST	# reload obstacle list
 	addi $t1, $t1, 1	# update the iterator
 	
 	j update_obs_loop
