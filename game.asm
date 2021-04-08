@@ -35,6 +35,7 @@
 #####################################################################	
 .eqv BASE_ADDRESS	0x10008000
 
+## COLOURS for the ship and the obstacles
 .eqv BLACK		0x000000
 .eqv GREY		0x6f6f6f
 .eqv LIGHT_GREY		0xa7a7a7
@@ -43,17 +44,17 @@
 .eqv YELLOW		0xe3e70f
 .eqv RED		0xff0000
 
-.eqv SMALL_OBS_SIZE	3
+.eqv SMALL_OBS_SIZE	6	# size of the small_obs_list
 
 .data
-SMALL_OBS_LIST:	.word 3,14,-6,0,-7,0	# array of (x,y), (x,y), (x,y)
-SHIP_LOC:	.word 4, 14	# 0: x coord 1: y coord  (4, 14 is the intial starting location)
+SMALL_OBS_LIST:	.word -5,0,-6,0,-7,0,-7,0,-7,0,-7,0	# array of (x,y), (x,y), (x,y)
+SHIP_LOC:	.word 4, 14				# an array that stores the ship's coordinates. SHIP_LOC[0] = x, SHIP_LOC[1] y
+							# Initially starts at (4,14)
 
 .text
 .globl main
 
 update_obs:
-	
 	li $t1, 0		# $t1 = iterator = 0
 	
 update_obs_loop:
@@ -69,7 +70,7 @@ update_obs_loop:
 	# SAVING VARIABLES: $t0, $t1
 	addi $sp, $sp, -4	# save $t0 to the stack
 	sw $t0, 0($sp)
-	addi $sp, $sp, -4
+	addi $sp, $sp, -4	# save $t1 to the stack
 	sw $t1, 0($sp)
 	addi $sp, $sp, -4	# save $ra on the stack
 	sw $ra, 0($sp)
@@ -123,8 +124,7 @@ add_obs:
 	li $a2, 1
 	
 	# call draw_obs(x,y,s)
-	# SAVING VARIABLES: $t1
-	addi $sp, $sp, -4
+	addi $sp, $sp, -4	# save $t1 to the stack
 	sw $t1, 0($sp)
 	addi $sp, $sp, -4	# save $ra on the stack
 	sw $ra, 0($sp)
@@ -146,10 +146,10 @@ add_obs:
 	
 	addi $t1, $t1, 1	# update the iterator
 	
-	j update_obs_loop
+	j update_obs_loop	# jump back to loop condition
 	
 update_obs_end:
-	jr $ra		
+	jr $ra			# return to caller
 	
 # Pass in x,y,s. if s is 1, draw the obstacle. Otherwise, clear the obstacle
 # Uses stack calling convention
@@ -171,41 +171,45 @@ draw_obs:
 	add $t5, $t5, $t6	# $t5 = offset of frame buffer verison of location
 	add $t4, $t4, $t5	# $t4 = frame buffer verison of location
 	
-	# LOAD COLOURS color1: $t5, color2: $t6
+	# LOAD COLOURS to draw obstalce color1: $t5, color2: $t6
 	beq $t0, 0, wipe_obs
 	li $t5, GREY
 	li $t6, LIGHT_GREY
 	j paint_obs
 	
+	# LOAD black to clear the obstacle from the screen
 wipe_obs:
 	li $t5, BLACK
 	li $t6, BLACK
 	
+	# check the if the first pixel column of the obstacle is in bounds. Draw if it is.
 paint_obs:
-	ble $t2, -1, paint_col_two
-	bge $t2, 32, paint_col_two
+	ble $t2, -1, paint_col_two	# if the column is left of the screen (x < -1) move on to second column
+	bge $t2, 32, paint_col_two	# if the column is right of the screen (x > 32) move on to second column
 	
-	sw $t5, 0($t4)
+	sw $t5, 0($t4)			# draw the first column pixel
+	# check the if the second pixel column of the obstacle is in bounds. Draw if it is.
 paint_col_two:
 	addi $t4, $t4, 4		# shift to next column
-	addi $t2, $t2, 1
-	ble $t2, -1, paint_col_three
-	bge $t2, 32, paint_col_three
+	addi $t2, $t2, 1		# shift the x coordinate to the second column (x = x + 1)
+	ble $t2, -1, paint_col_three	# if the column is left of the screen (x < -1) move on to third column
+	bge $t2, 32, paint_col_three	# if the column is right of the screen (x > 32) move on to thrid column
 	
-	sw $t5, -128($t4)
+	sw $t5, -128($t4)		# draw the pixels for the second column
 	sw $t6, 0($t4)
 	sw $t5, 128($t4)
+	# check the if the third pixel column of the obstacle is in bounds. Draw if it is.
 paint_col_three:
 	addi $t4, $t4, 4		# shift to next column
-	addi $t2, $t2, 1
-	ble $t2, -1, draw_obs_end
-	bge $t2, 32, draw_obs_end
+	addi $t2, $t2, 1		# shift the x coordinate to the second column (x = x + 1)
+	ble $t2, -1, draw_obs_end	# if the column is left of the screen (x < -1) end the function
+	bge $t2, 32, draw_obs_end	# if the column is right of the screen (x > 32) end the function
 	sw $t5, 0($t4)
 
 draw_obs_end:
 	jr $ra			# return to caller
 
-## Pass in a number (1 or 0) to $a0. if 1, draw the ship. Otherwise, clear the ship
+## Pass in a number (0,1,2) to $a0. if 1, draw the ship. Otherwise, clear the ship
 ## Use the register based calling convention
 draw_ship:
 	la $t0, BASE_ADDRESS	# $t0 = address of framebuffer
@@ -222,17 +226,20 @@ draw_ship:
 	# LOAD COLOURS NEEDED FOR SHIP
 	beq $a0, 0, clear_ship	# if value passed in is 0, clear the ship
 	beq $a0, 2, hit_ship	# if value passed in is 2, render hit ship
+	# case where you need to render the ship
 	li $t4, YELLOW
 	li $t5, ORANGE
 	li $t6, BLUE
 	j render_ship
 	
+	# make the ship red to indicate a hit
 hit_ship:
 	li $t4, YELLOW
 	li $t5, ORANGE
 	li $t6, RED
 	j render_ship
 	
+	# remove the ship off the screen
 clear_ship:
 	li $t4, BLACK
 	li $t5, BLACK
@@ -275,22 +282,22 @@ update_ship:
 	beq $t3, 97, GO_LEFT		# if A was pressed
 	beq $t3, 115, GO_DOWN		# if D was pressed
 	beq $t3, 100, GO_RIGHT		# if S was pressed
-	#beq $t3, 112, RESTART		# if P was pressed
+	beq $t3, 112, RESTART		# if P was pressed
 	jr $ra				# otherwise return to caller
 	
-GO_UP:	addi $t2, $t2, -2		# y = y - 1
+GO_UP:	addi $t2, $t2, -2		# y = y - 2
 	j update_ship_array
 	
 GO_LEFT:
-	addi $t1, $t1, -2		# x = x - 1
+	addi $t1, $t1, -2		# x = x - 2
 	j update_ship_array
 	
 GO_DOWN:	
-	addi $t2, $t2, 2		# y = y + 1
+	addi $t2, $t2, 2		# y = y + 2
 	j update_ship_array
 	
 GO_RIGHT:
-	addi $t1, $t1, 2		# x = x + 1
+	addi $t1, $t1, 2		# x = x + 2
 	
 update_ship_array:
 	# CHECK IF THE CHANGES ARE OUT OF BOUNDS
@@ -386,6 +393,27 @@ collision_check_end:
 	
 # reset all values
 RESTART:
+	## reset ship location
+	la $t0, SHIP_LOC	# $t0, location of the ship_array
+	li $t1, 4		# ship's spawn point x = 4
+	li $t2, 14		# ship's spawn point y = 14
+	sw $t1, 0($t0)		# store the ship's new location
+	sw $t2, 4($t0)
+	
+	## reset obstacle location
+	la $t0, SMALL_OBS_LIST	# $t0 = location of small obstacle array
+	li $t1, 0		# $t1 = iterator = 0
+	
+restart_obs_loop:
+	bge $t1, SMALL_OBS_SIZE, restart_end
+	sll $t2, $t1, 3		# $t2 = offset for the iterator
+	add $t3, $t2, $t0	# $t3 = address of small obs array[i]
+	li $t4, -5		# $t3 = location of new obstacle (off the screen)
+	sw $t4, 0($t3)		# array[i] = -5
+	addi $t1, $t1, 1	# update the iterator i++
+	j restart_obs_loop	# jump back to while condition
+	
+restart_end:
 	j main
 	
 # clear the whole screen to black
@@ -406,9 +434,6 @@ clear_screen_end:
 	
 main:
 	jal clear_screen
-	
-	#li $a0, 1		# draw the ship
-	#jal draw_ship
 GAME_LOOP:
 	#beq $t1, $zero, END	# if lives are 0 then jump to END
 
@@ -423,7 +448,7 @@ GAME_LOOP:
 	li $a0, 1		# call draw_ship(1)
 	jal draw_ship		# draw the ship	on the screen
 
-SLEEP:	# sleep for 40ms the  refresh rate
+SLEEP:	# sleep for 40ms the refresh rate
 	li $v0, 32
 	li $a0, 40
 	syscall
