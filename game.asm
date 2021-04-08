@@ -43,11 +43,11 @@
 .eqv YELLOW		0xe3e70f
 .eqv RED		0xff0000
 
-.eqv SMALL_OBS_SIZE	1
+.eqv SMALL_OBS_SIZE	3
 
 .data
-SMALL_OBS_LIST:	.word 5,15,-6,0,-7,0	# array of (x,y), (x,y), (x,y)
-SHIP_LOC:	.word 4, 15	# 0: x coord 1: y coord  (4, 15 is the intial starting location)
+SMALL_OBS_LIST:	.word 3,14,-6,0,-7,0	# array of (x,y), (x,y), (x,y)
+SHIP_LOC:	.word 4, 14	# 0: x coord 1: y coord  (4, 14 is the intial starting location)
 
 .text
 .globl main
@@ -286,11 +286,11 @@ GO_LEFT:
 	j update_ship_array
 	
 GO_DOWN:	
-	addi $t2, $t2, 2	# y = y + 1
+	addi $t2, $t2, 2		# y = y + 1
 	j update_ship_array
 	
 GO_RIGHT:
-	addi $t1, $t1, 2	# x = x + 1
+	addi $t1, $t1, 2		# x = x + 1
 	
 update_ship_array:
 	# CHECK IF THE CHANGES ARE OUT OF BOUNDS
@@ -310,9 +310,6 @@ update_ship_end:
 	jr $ra
 	
 collision_check:
-	la $t0, SHIP_LOC	# load address of ship array
-	lw $t1, 4($t0)		# $t1 = ship's y
-	lw $t0, 0($t0)		# $t0 = ship's x
 	la $t2, SMALL_OBS_LIST	# $t2 = address of obstacle list
 	li $t3, 0		# $t3 = iterator = 0
 	
@@ -323,9 +320,20 @@ collision_check_loop:
 	lw $t5, 4($t4)		# $t5 = obstacle's y coords
 	lw $t4, 0($t4)		# $t4 = obstacles's x coords
 	
+	# DO NOT CHECK IF OBSTACLES ARE ON THE EDGES
+	blt $t4, 1, collision_check_update	# if obs x coords < 1, move on to next obstacle
+	bgt $t4, 30, collision_check_update	# if obs x coords > 30, move on to next obstacle
+	
 	## CHECK IF OBSTASCLE IS INBOUNDS OF SHIP
-	bne $t4, $t0, collision_check_update
-	bne $t5, $t1, collision_check_update
+	sll $t0, $t4, 2		# $t2 = 4x
+	sll $t1, $t5, 7		# $t3 = 128y
+	add $t0, $t0, $t1	# offset for pixel from frame buffer
+	la $t1, BASE_ADDRESS	# $t1 = BASE_ADDRESS
+	add $t0, $t1, $t0	# address of the pixel
+	
+	# Check the tip of the obstacle
+	lw $t4, -4($t0)				# load the colour of the adjacent pixel
+	bne $t4, BLUE, collision_check_update	# if the adjacent if pixel if blue, thats means we hit a ship
 	
 collision_hit:
 	# save $t0, $t1, $t2, $t3 to the stack
@@ -356,7 +364,7 @@ collision_hit:
 	
 	# invoke sleep for 0.25 seconds
 	li $v0, 32
-	li $a0, 250
+	li $a0, 50
 	syscall
 	
 collision_check_update:
@@ -374,7 +382,7 @@ collision_check_end:
 	lw $ra, 0($sp)		# restore $ra
 	addi $sp, $sp, 4
 
-	jr $ra
+	jr $ra			# return to caller
 	
 # reset all values
 RESTART:
@@ -399,23 +407,21 @@ clear_screen_end:
 main:
 	jal clear_screen
 	
-	li $a0, 1		# draw the ship
-	jal draw_ship
+	#li $a0, 1		# draw the ship
+	#jal draw_ship
 GAME_LOOP:
 	#beq $t1, $zero, END	# if lives are 0 then jump to END
 
-	jal update_obs
+	jal update_obs		# update the location of obstacles
+	jal collision_check	# iterate thorugh each obstacle, and checks if it hits the ship
 	
 	li $a0, 0		# call draw_ship(0)
-	jal draw_ship
+	jal draw_ship		# clear the ship on the screen
 	
-	jal update_ship		# check user input
+	jal update_ship		# check user input and update location
 	
-	## NEW FUNCTION CALLED CHECK COLLISION will call draw_ship(2) if hit obstacle. draw_ship(1) otherwise
-	jal collision_check
-	
-	#li $a0, 1		# call draw_ship(1)
-	#jal draw_ship		# draw the ship	 
+	li $a0, 1		# call draw_ship(1)
+	jal draw_ship		# draw the ship	on the screen
 
 SLEEP:	# sleep for 40ms the  refresh rate
 	li $v0, 32
