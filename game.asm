@@ -3,7 +3,7 @@
 # CSCB58 Winter 2021 Assembly Final Project
 # University of Toronto, Scarborough
 #
-# Student: Name, Student Number, UTorID
+# Student: Raymond Ma, 1006210048, maraymon
 #
 # Bitmap Display Configuration:
 # - Unit width in pixels: 8 (update this as needed)
@@ -43,6 +43,7 @@
 .eqv BLUE		0x006dff
 .eqv YELLOW		0xe3e70f
 .eqv RED		0xff0000
+.eqv WHITE		0xffffff
 
 .eqv SMALL_OBS_SIZE	6	# size of the small_obs_list
 
@@ -50,6 +51,8 @@
 SMALL_OBS_LIST:	.word -5,0,-6,0,-7,0,-7,0,-7,0,-7,0	# array of (x,y), (x,y), (x,y)
 SHIP_LOC:	.word 4, 14				# an array that stores the ship's coordinates. SHIP_LOC[0] = x, SHIP_LOC[1] y
 							# Initially starts at (4,14)
+SHIP_HEALTH:	.word 12				# health of the ship. 12 hits then game_over
+
 
 .text
 .globl main
@@ -369,6 +372,8 @@ collision_hit:
 	lw $t0, 0($sp)		# restore $t0
 	addi $sp, $sp, 4
 	
+	
+	
 	# invoke sleep for 0.25 seconds
 	li $v0, 32
 	li $a0, 50
@@ -391,8 +396,29 @@ collision_check_end:
 
 	jr $ra			# return to caller
 	
+draw_gui:
+	# draw the white line at the bottom
+	li $t1, WHITE			# $t1 = colour white
+	la $t0, BASE_ADDRESS		# load the base address
+	li $t2, 3456			# $t2 = iterator
+	
+draw_gui_loop:
+	bgt $t2, 3580, draw_gui_end	# if pixel is greater tha 3580 exit loop
+	add $t7, $t0, $t2		# calculate address for pixel	
+	sw $t1, 0($t7)			# store white on that pixel
+	addi $t2, $t2, 4		# move to the right pixel
+	j draw_gui_loop			# jump to loop condition
+	
+draw_gui_end:
+	jr $ra				# return to caller
+	
 # reset all values
 RESTART:
+	## reset ship health
+	la $t0, SHIP_HEALTH	# $t0 = health of the ship
+	li $t1, 12		# load intital health of the ship
+	sw $t1, 0($t0)		# store to variable
+
 	## reset ship location
 	la $t0, SHIP_LOC	# $t0, location of the ship_array
 	li $t1, 4		# ship's spawn point x = 4
@@ -403,6 +429,7 @@ RESTART:
 	## reset obstacle location
 	la $t0, SMALL_OBS_LIST	# $t0 = location of small obstacle array
 	li $t1, 0		# $t1 = iterator = 0
+	
 	
 restart_obs_loop:
 	bge $t1, SMALL_OBS_SIZE, restart_end
@@ -434,19 +461,20 @@ clear_screen_end:
 	
 main:
 	jal clear_screen
+	jal draw_gui
 GAME_LOOP:
 	#beq $t1, $zero, END	# if lives are 0 then jump to END
 
-	jal update_obs		# update the location of obstacles
-	jal collision_check	# iterate thorugh each obstacle, and checks if it hits the ship
+	#jal update_obs		# update the location of obstacles
+	#jal collision_check	# iterate thorugh each obstacle, and checks if it hits the ship
 	
-	li $a0, 0		# call draw_ship(0)
-	jal draw_ship		# clear the ship on the screen
+	#li $a0, 0		# call draw_ship(0)
+	#jal draw_ship		# clear the ship on the screen
 	
-	jal update_ship		# check user input and update location
+	#jal update_ship		# check user input and update location
 	
-	li $a0, 1		# call draw_ship(1)
-	jal draw_ship		# draw the ship	on the screen
+	#li $a0, 1		# call draw_ship(1)
+	#jal draw_ship		# draw the ship	on the screen
 
 SLEEP:	# sleep for 40ms the refresh rate
 	li $v0, 32
