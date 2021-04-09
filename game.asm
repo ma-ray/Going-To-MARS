@@ -108,13 +108,13 @@ update_obs_loop:
 	addi $t2, $t2, 32	# add 16 to it to acheive 32 AND 48 INCLUSIVE
 	sw $t2, 0($t0)		# store in array
 	
-	## GENERATE NEW Y BETWEEN 1 AND 30 INCLUSIVE
+	## GENERATE NEW Y BETWEEN 1 AND 25 INCLUSIVE
 	li $v0, 42
 	li $a0, 0
-	li $a1, 29
+	li $a1, 25
 	syscall
 	move $t3, $a0		# move random value to $t3
-	addi $t3,$t3, 1		# add 1 to it to achieve 1 AND 30 INCLUSIVE
+	addi $t3,$t3, 1		# add 1 to it to achieve 1 AND 25 INCLUSIVE
 	sw $t3, 4($t0)		# store in array
 	####
 	
@@ -308,9 +308,9 @@ update_ship_array:
 	blt $t1, 4, update_ship_end
 	bgt $t1, 31, update_ship_end
 	
-	# if y < 2 or y > 29 return to caller
+	# if y < 2 or y > 24 return to caller (white line boundary)
 	blt $t2, 2, update_ship_end
-	bgt $t2, 29, update_ship_end
+	bgt $t2, 24, update_ship_end
 	
 	# load coordinates back to array
 	sw $t1, 0($t0)
@@ -465,16 +465,16 @@ main:
 GAME_LOOP:
 	#beq $t1, $zero, END	# if lives are 0 then jump to END
 
-	#jal update_obs		# update the location of obstacles
-	#jal collision_check	# iterate thorugh each obstacle, and checks if it hits the ship
+	jal update_obs		# update the location of obstacles
+	jal collision_check	# iterate thorugh each obstacle, and checks if it hits the ship
 	
-	#li $a0, 0		# call draw_ship(0)
-	#jal draw_ship		# clear the ship on the screen
+	li $a0, 0		# call draw_ship(0)
+	jal draw_ship		# clear the ship on the screen
 	
-	#jal update_ship		# check user input and update location
+	jal update_ship		# check user input and update location
 	
-	#li $a0, 1		# call draw_ship(1)
-	#jal draw_ship		# draw the ship	on the screen
+	li $a0, 1		# call draw_ship(1)
+	jal draw_ship		# draw the ship	on the screen
 
 SLEEP:	# sleep for 40ms the refresh rate
 	li $v0, 32
