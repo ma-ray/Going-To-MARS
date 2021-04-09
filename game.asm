@@ -361,6 +361,7 @@ collision_hit:
 	
 	li $a0, 2		# call draw_ship(2)
 	jal draw_ship
+	jal update_health
 	
 	lw $ra, 0($sp)		# restore $ra
 	addi $sp, $sp, 4
@@ -373,7 +374,7 @@ collision_hit:
 	lw $t0, 0($sp)		# restore $t0
 	addi $sp, $sp, 4
 	
-	
+	# call the update_health function
 	
 	# invoke sleep for 0.25 seconds
 	li $v0, 32
@@ -396,6 +397,25 @@ collision_check_end:
 	addi $sp, $sp, 4
 
 	jr $ra			# return to caller
+	
+update_health:
+	############################
+	la $t0, SHIP_HEALTH		# $t0 = address of ship health
+	lw $t1, 0($t0)			# $t1 = ship health
+	addi $t1, $t1, -1		# decrease ship health
+	
+	la $t2, SHIP_HEALTH_STATUS	# $t2 = address of SHIP_HEALTH_STATUS
+	sll $t3, $t1, 2			# offset for accessing array[ship_health}
+	add $t2, $t2, $t3		# address for array[ship_health]
+	lw $t2, 0($t2)			# $t2 = array[ship_heath]
+	la $t3, BASE_ADDRESS		# $t3 = BASE_ADDRESS
+	add $t2, $t2, $t3		# address for the pixel to erase
+	li $t7, GREY			# load the colour GREY
+	sw $t7, 0($t2)			# paint the pixel GREY
+	
+	sw $t1, 0($t0)			# store the new ship health		
+	
+	jr $ra
 	
 draw_gui:
 	# draw the white line at the bottom
