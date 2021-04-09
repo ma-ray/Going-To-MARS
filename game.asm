@@ -48,11 +48,12 @@
 .eqv SMALL_OBS_SIZE	6	# size of the small_obs_list
 
 .data
-SMALL_OBS_LIST:	.word -5,0,-6,0,-7,0,-7,0,-7,0,-7,0	# array of (x,y), (x,y), (x,y)
-SHIP_LOC:	.word 4, 14				# an array that stores the ship's coordinates. SHIP_LOC[0] = x, SHIP_LOC[1] y
-							# Initially starts at (4,14)
-SHIP_HEALTH:	.word 12				# health of the ship. 12 hits then game_over
-
+SMALL_OBS_LIST:		.word -5,0,-6,0,-7,0,-7,0,-7,0,-7,0	# array of (x,y), (x,y), (x,y)
+SHIP_LOC:		.word 4, 14				# an array that stores the ship's coordinates. SHIP_LOC[0] = x, SHIP_LOC[1] y
+								# Initially starts at (4,14)
+SHIP_HEALTH:		.word 12				# health of the ship. 12 hits then game_over
+SHIP_HEALTH_STATUS:	.word 3716, 3844, 3848, 3720, 3728, 3856, 3860, 3732, 3740, 3868, 3872, 3744
+			# array coordinates (in offset form) to pixels that represent the ship's health
 
 .text
 .globl main
@@ -403,11 +404,27 @@ draw_gui:
 	li $t2, 3456			# $t2 = iterator
 	
 draw_gui_loop:
-	bgt $t2, 3580, draw_gui_end	# if pixel is greater tha 3580 exit loop
+	bgt $t2, 3580, setup_health	# if pixel is greater tha 3580 exit loop
 	add $t7, $t0, $t2		# calculate address for pixel	
 	sw $t1, 0($t7)			# store white on that pixel
 	addi $t2, $t2, 4		# move to the right pixel
 	j draw_gui_loop			# jump to loop condition
+	
+setup_health:
+	li $t3, RED
+	la $t4, BASE_ADDRESS		# $t4 = BASE_ADDRESS			
+	la $t0, SHIP_HEALTH_STATUS	# $t0 = address of SHIP_HEALTH_STATUS
+	li $t1, 0			# $t1 = iterator = 0
+	
+setup_health_loop:
+	bge $t1, 12, draw_gui_end	# i > 12 
+	sll $t5, $t1, 2			# $t5 = offset for i
+	add $t5, $t5, $t0		# $t5 = address for array[i]
+	lw $t5, 0($t5)			# $t5 = offset for pixel location
+	add $t5, $t5, $t4		# $t5 = pixel location
+	sw $t3, 0($t5)			# draw the pixel red
+	addi $t1, $t1, 1		# update the iterator i = i + 1
+	j setup_health_loop
 	
 draw_gui_end:
 	jr $ra				# return to caller
