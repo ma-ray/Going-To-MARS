@@ -60,6 +60,8 @@ SHIP_HEALTH_STATUS:	.word 3716, 3844, 3848, 3720, 3728, 3856, 3860, 3732, 3740, 
 SHOOTING_LIST:		.word -1,10				# array of (x,y), (x,y), (x,y) coordinates of the bullets -1 indicates it has not spawned
 SHOOTING_STATUS:	.word 3808, 3816, 3824, 3832		# pixels to the shooting status
 SHOOTING_AVAIL:		.word 4
+SHOOTING_TIMER:		.word 0					# per second incremanet the shooting availabel
+
 .text
 .globl main
 
@@ -296,6 +298,13 @@ update_ship:
 	jr $ra				# otherwise return to caller
 	
 SPAWN_BULLET:
+	# load if we have enough bullets available
+	la $t7, SHOOTING_AVAIL		# load how many bullets the player has
+	lw $t6, 0($t7)			
+	blt $t6, 1, update_shooting_end	# if bullets available is 0, do nothing
+	addi $t6, $t6, -1		# decrease the bullets available by 1
+	sw $t6, 0($t7)	 		# store it back
+
 	# no need to update ship
 	la $t3, SHOOTING_LIST			
 	# load the contents at index i
@@ -583,10 +592,27 @@ draw_gui_end:
 	jr $ra				# return to caller
 	
 draw_shoot_status:
+	# check if enough time has passed to increment the bullets available
+	la $t0, SHOOTING_AVAIL
+	lw $t1, 0($t0)			# load how many bullets the player can use
+	la $t2, SHOOTING_TIMER	
+	lw $t3, 0($t2)			# load the time so far
+	bge $t3, 2000, add_bullet	# if it has been 2 seconds, increment availble bullets
+	j draw_bars			# other wise draw the bullet status
+	
+add_bullet:
+	addi $t1, $t1, 1		# increment the bullet
+	sw $zero,  0($t2)		# reset the timer
+	bgt $t1, 4, set_max_bullet	# cap the available bullets to 4
+	j draw_bars
+set_max_bullet:
+	li $t1, 4			# set the max bullets to 4
+
+draw_bars:
+	sw $t1, 0($t0)			# store the updated available bullets
 	la $t0, SHOOTING_STATUS		# load address of SHOOTING_STATUS
-	la $t1, SHOOTING_AVAIL		# load how many bullets the player can use
-	lw $t1, 0($t1)			
 	li $t2, 0			# setup iterator
+
 	# set it all to dark yellow
 inactive_shoot_loop:
 	bge $t2, 4, active_shoot
@@ -640,6 +666,16 @@ RESTART:
 	la $t0, SHOOTING_LIST	# $t0 = location of shooting list
 	li $t1, -1
 	sw $t1, 0($t0)		# store -1 in list to show inactive state
+	
+	# reset the shoot timer
+	la $t0, SHOOTING_TIMER
+	li $t1, 0
+	sw $t1, 0($t0)		# reset the timer to 0
+	
+	# reset the bullets available
+	la $t0, SHOOTING_AVAIL
+	li $t1, 4
+	sw $t1, 0($t0)		# reset the bullets available to 4
 	
 restart_obs_loop:
 	bge $t1, SMALL_OBS_SIZE, restart_end
@@ -702,6 +738,12 @@ SLEEP:	# sleep for 40ms the refresh rate
 	li $v0, 32
 	li $a0, 40
 	syscall
+	
+	
+	la $t0, SHOOTING_TIMER	# load address to the shooting timer
+	lw $t1, 0($t0)		# load the contents
+	addi $t1, $t1, 40	# add 40 ms to the shooting timer
+	sw $t1, 0($t0)		# store it back into .data
 	
 	la $t0, SHIP_HEALTH	# $t0 = address of SHIP_HEALTH
 	lw $t0, 0($t0)		# $t1 = ship health
