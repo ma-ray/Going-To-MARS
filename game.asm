@@ -47,7 +47,6 @@
 
 .eqv SMALL_OBS_SIZE	6	# size of the small_obs_list
 .eqv SHOOTING_SPEED	2	# speed of the bullets
-.eqv SHOOTING_LIST_SIZE	4	# size of shooting list
 
 .data
 SMALL_OBS_LIST:		.word -5,0,-6,0,-7,0,-7,0,-7,0,-7,0	# array of (x,y), (x,y), (x,y)
@@ -56,7 +55,7 @@ SHIP_LOC:		.word 4, 14				# an array that stores the ship's coordinates. SHIP_LO
 SHIP_HEALTH:		.word 12				# health of the ship. 12 hits then game_over
 SHIP_HEALTH_STATUS:	.word 3716, 3844, 3848, 3720, 3728, 3856, 3860, 3732, 3740, 3868, 3872, 3744
 			# array coordinates (in offset form) to pixels that represent the ship's health
-SHOOTING_LIST:		.word 0,10,0,1,-1,-1,-1,-1		# array of (x,y), (x,y), (x,y) coordinates of the bullets -1 indicates it has not spawned
+SHOOTING_LIST:		.word 0,10				# array of (x,y), (x,y), (x,y) coordinates of the bullets -1 indicates it has not spawned
 
 .text
 .globl main
@@ -295,24 +294,15 @@ update_ship:
 	
 SPAWN_BULLET:
 	# no need to update ship
-	la $t3, SHOOTING_LIST
-	li $t4, 0			# iterator
-spawn_bullet_loop:			
-	bge $t4, SHOOTING_LIST_SIZE, update_shooting_end
+	la $t3, SHOOTING_LIST			
 	# load the contents at index i
-	sll $t5, $t4, 3				# i * 8
-	add $t5, $t3, $t5			# address of array[i]
-	lw $t4, 0($t5)				# $t4 = bulltet's x
-	lw $t6, 4($t5) 				# $t6 = bullet's y
-	bgt $t4, -1, spawn_bullet_update	# if bullet
+	lw $t4, 0($t3)				# $t4 = bulltet's x
+	lw $t6, 4($t3) 				# $t6 = bullet's y
+	bgt $t4, -1, update_shooting_end	# if bullet active end
 	addi $t1, $t1, SHOOTING_SPEED		# x location of bullet
-	sw $t1, 0($t5)
-	sw $t2, 4($t5)
+	sw $t1, 0($t3)				# store new location of bullet
+	sw $t2, 4($t3)
 	j update_shooting_end
-	
-spawn_bullet_update:
-	addi $t1, $t1, 1		# i = i + 1
-	j spawn_bullet_loop
 	
 GO_UP:	addi $t2, $t2, -2		# y = y - 2
 	j update_ship_array
@@ -445,14 +435,11 @@ update_health:
 update_shooting:
 	la $t0, SHOOTING_LIST
 	li $t1, 0			# iterator
-update_shooting_loop:			
-	bge $t1, SHOOTING_LIST_SIZE, update_shooting_end
+			
 	# load the contents at index i
-	sll $t2, $t1, 3			# i * 8
-	add $t3, $t2, $t0		# address of array[i]
-	lw $t4, 0($t3)			# $t4 = x
-	lw $t5, 4($t3) 			# $t4 = y
-	blt $t4, 0, update_shooting_loop_next		# if bullet is not active
+	lw $t4, 0($t0)			# $t4 = x
+	lw $t5, 4($t0) 			# $t4 = y
+	blt $t4, 0, update_shooting_end		# if bullet is not active
 	# CALCULATE THE PIXEL LOCATION OF BULLET
 	sll $t6, $t4, 2		# $t6 = 4x
 	sll $t7, $t5, 7		# $t7 = 128y
@@ -468,20 +455,16 @@ update_shooting_loop:
 	li $t5, SHOOTING_SPEED
 	sll $t5, $t5, 2			# shooting speed * 4
 	add $t6, $t5, $t6		# update pixel address
-	sw $t7, 0($t6)		# draw the new pixel 3 to the right from original location
-	sw $t4, 0($t3)		# store new x in array
-update_shooting_loop_next:
-	addi $t1, $t1, 1	# i = i + 1
-	j update_shooting_loop	# go back to loop condition
+	sw $t7, 0($t6)			# draw the new pixel 3 to the right from original location
+	sw $t4, 0($t0)			# store new x in array
 	
 update_shooting_end:
 	jr $ra
 	
 bullet_inactive:
 	li $t4, -1
-	sw $t4, 0($t3)		# store new x in array
-	j update_shooting_loop_next
-	
+	sw $t4, 0($t0)			# store new x in array
+	j update_shooting_end
 	
 draw_gui:
 	# draw the white line at the bottom
