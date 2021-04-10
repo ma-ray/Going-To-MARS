@@ -49,13 +49,13 @@
 .eqv SHOOTING_SPEED	2	# speed of the bullets
 
 .data
-SMALL_OBS_LIST:		.word -5,0,-6,0,-7,0,-7,0,-7,0,-7,0	# array of (x,y), (x,y), (x,y)
+SMALL_OBS_LIST:		.word 30,14,-6,0,-7,0,-7,0,-7,0,-7,0	# array of (x,y), (x,y), (x,y)
 SHIP_LOC:		.word 4, 14				# an array that stores the ship's coordinates. SHIP_LOC[0] = x, SHIP_LOC[1] y
 								# Initially starts at (4,14)
 SHIP_HEALTH:		.word 12				# health of the ship. 12 hits then game_over
 SHIP_HEALTH_STATUS:	.word 3716, 3844, 3848, 3720, 3728, 3856, 3860, 3732, 3740, 3868, 3872, 3744
 			# array coordinates (in offset form) to pixels that represent the ship's health
-SHOOTING_LIST:		.word 0,10				# array of (x,y), (x,y), (x,y) coordinates of the bullets -1 indicates it has not spawned
+SHOOTING_LIST:		.word -1,10				# array of (x,y), (x,y), (x,y) coordinates of the bullets -1 indicates it has not spawned
 
 .text
 .globl main
@@ -111,10 +111,10 @@ update_obs_loop:
 	addi $t2, $t2, 32	# add 16 to it to acheive 32 AND 48 INCLUSIVE
 	sw $t2, 0($t0)		# store in array
 	
-	## GENERATE NEW Y BETWEEN 1 AND 25 INCLUSIVE
+	## GENERATE NEW Y BETWEEN 1 AND 24 INCLUSIVE
 	li $v0, 42
 	li $a0, 0
-	li $a1, 25
+	li $a1, 24
 	syscall
 	move $t3, $a0		# move random value to $t3
 	addi $t3,$t3, 1		# add 1 to it to achieve 1 AND 25 INCLUSIVE
@@ -210,7 +210,7 @@ paint_col_three:
 	addi $t2, $t2, 1		# shift the x coordinate to the second column (x = x + 1)
 	ble $t2, -1, draw_obs_end	# if the column is left of the screen (x < -1) end the function
 	bge $t2, 32, draw_obs_end	# if the column is right of the screen (x > 32) end the function
-	sw $t5, 0($t4)
+	sw $t5, 0($t4)			# draw the pixel for the third column
 
 draw_obs_end:
 	jr $ra			# return to caller
@@ -299,7 +299,7 @@ SPAWN_BULLET:
 	lw $t4, 0($t3)				# $t4 = bulltet's x
 	lw $t6, 4($t3) 				# $t6 = bullet's y
 	bgt $t4, -1, update_shooting_end	# if bullet active end
-	addi $t1, $t1, SHOOTING_SPEED		# x location of bullet
+	#addi $t1, $t1, SHOOTING_SPEED		# x location of bullet
 	sw $t1, 0($t3)				# store new location of bullet
 	sw $t2, 4($t3)
 	j update_shooting_end
@@ -342,9 +342,9 @@ collision_check:
 collision_check_loop:
 	bge $t3, SMALL_OBS_SIZE, collision_check_end	# while i <= 3
 	sll $t4, $t3, 3		# the offset size
-	add $t4, $t4, $t2	# $t4 = address of obs_array[i]
-	lw $t5, 4($t4)		# $t5 = obstacle's y coords
-	lw $t4, 0($t4)		# $t4 = obstacles's x coords
+	add $t7, $t4, $t2	# $t7 = address of obs_array[i]
+	lw $t5, 4($t7)		# $t5 = obstacle's y coords
+	lw $t4, 0($t7)		# $t4 = obstacles's x coords
 	
 	# DO NOT CHECK IF OBSTACLES ARE ON THE EDGES
 	blt $t4, 1, collision_check_update	# if obs x coords < 1, move on to next obstacle
@@ -357,10 +357,62 @@ collision_check_loop:
 	la $t1, BASE_ADDRESS	# $t1 = BASE_ADDRESS
 	add $t0, $t1, $t0	# address of the pixel
 	
-	# Check the tip of the obstacle
+	# Check the left of the obstacle
 	lw $t4, -4($t0)				# load the colour of the adjacent pixel
-	bne $t4, BLUE, collision_check_update	# if the adjacent if pixel if blue, thats means we hit a ship
+	addi $t5, $t0, -4			# pixel for bullet if we are going to erase
+	beq $t4, WHITE, collision_bullet	# if adjacent pixel is white, the obstacle has hit a bullet
+	beq $t4, BLUE, collision_hit		# if the adjacent if pixel is blue, thats means we hit a ship
 	
+	# Check the top of the obstacle
+	lw $t4, -128($t0)			
+	addi $t5, $t0, -128			
+	beq $t4, WHITE, collision_bullet	
+	
+	# Check the bottom of the obstacle
+	lw $t4, 128($t0)			
+	addi $t5, $t0, 128			
+	beq $t4, WHITE, collision_bullet	
+	
+	### Check if the bullet has drawn over the obstacles
+	lw $t4, 0($t0)				
+	addi $t5, $t0, 0			
+	beq $t4, WHITE, collision_bullet	
+	
+	# Check the 
+	lw $t4, 4($t0)				
+	addi $t5, $t0, 4			
+	beq $t4, WHITE, collision_bullet	
+	
+	lw $t4, 8($t0)				
+	addi $t5, $t0, 8			
+	beq $t4, WHITE, collision_bullet	
+	
+	lw $t4, -124($t0)			
+	addi $t5, $t0, -124			
+	beq $t4, WHITE, collision_bullet	
+	
+	lw $t4, 132($t0)			
+	addi $t5, $t0, 132			
+	beq $t4, WHITE, collision_bullet
+	######################################################	
+	### Check if the bullet was in proximity of the obstacle
+	lw $t4, -252($t0)			
+	addi $t5, $t0, -252			
+	beq $t4, WHITE, collision_bullet	
+	
+	lw $t4, 260($t0)			
+	addi $t5, $t0, 260			
+	beq $t4, WHITE, collision_bullet	
+	
+	lw $t4, -132($t0)			
+	addi $t5, $t0, -132			
+	beq $t4, WHITE, collision_bullet	
+	
+	lw $t4, 124($t0)			
+	addi $t5, $t0, 124			
+	beq $t4, WHITE, collision_bullet	
+	
+	j collision_check_update
 collision_hit:
 	# save $t0, $t1, $t2, $t3 to the stack
 	addi $sp, $sp, -4	# save $t0
@@ -389,12 +441,27 @@ collision_hit:
 	lw $t0, 0($sp)		# restore $t0
 	addi $sp, $sp, 4
 	
-	# call the update_health function
-	
 	# invoke sleep for 0.25 seconds
 	li $v0, 32
 	li $a0, 50
 	syscall
+	j collision_check_update	
+
+collision_bullet:
+	# erase the obstacle and reset
+	sw $zero, 0($t0)			# draw the first column pixel
+	sw $zero, 4($t0)			# draw the pixels for the second column
+	sw $zero, 8($t0)
+	sw $zero, -124($t0)
+	sw $zero, 132($t0)
+	li $t6, -5				# load a value that is off the screen
+	sw $t6, 0($t7)				# reset the obstacle
+	sw $zero, 4($t7)
+	# erase bullet and reset
+	sw $zero, 0($t5)			# undraw the bullet
+	la $t7, SHOOTING_LIST			# $t7 = address of shooting list
+	li $t6, -1				# load the inactive state
+	sw $t6, 0($t7)				# store it in shooting list
 	
 collision_check_update:
 	addi $t3, $t3, 1	# i = i + 1
@@ -554,8 +621,8 @@ main:
 GAME_LOOP:
 	blt $t0, 1, dead_state		# if lives are 0 then jump to END
 	
-	jal update_shooting	# move the bullets and check for collisions
 	jal update_obs		# update the location of obstacles
+	jal update_shooting	# move the bullets and check for collisions
 	jal collision_check	# iterate thorugh each obstacle, and checks if it hits the ship
 	
 	li $a0, 0		# call draw_ship(0)
