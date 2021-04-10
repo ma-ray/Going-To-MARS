@@ -44,6 +44,8 @@
 .eqv YELLOW		0xe3e70f
 .eqv RED		0xff0000
 .eqv WHITE		0xffffff
+.eqv DARK_YELLOW	0x5a4d00
+.eqv YELLOW2		0xffdc00
 
 .eqv SMALL_OBS_SIZE	6	# size of the small_obs_list
 .eqv SHOOTING_SPEED	2	# speed of the bullets
@@ -56,7 +58,8 @@ SHIP_HEALTH:		.word 12				# health of the ship. 12 hits then game_over
 SHIP_HEALTH_STATUS:	.word 3716, 3844, 3848, 3720, 3728, 3856, 3860, 3732, 3740, 3868, 3872, 3744
 			# array coordinates (in offset form) to pixels that represent the ship's health
 SHOOTING_LIST:		.word -1,10				# array of (x,y), (x,y), (x,y) coordinates of the bullets -1 indicates it has not spawned
-
+SHOOTING_STATUS:	.word 3808, 3816, 3824, 3832		# pixels to the shooting status
+SHOOTING_AVAIL:		.word 4
 .text
 .globl main
 
@@ -449,6 +452,19 @@ collision_hit:
 	j collision_check_update	
 
 collision_bullet:
+	# make the obstacle orange to indicate a hit
+	li $t6, ORANGE
+	sw $t6, 0($t0)			# draw the first column pixel
+	sw $t6, 4($t0)			# draw the pixels for the second column
+	sw $t6, 8($t0)
+	sw $t6, -124($t0)
+	sw $t6, 132($t0)
+	
+	# invoke sleep for 0.25 seconds
+	li $v0, 32
+	li $a0, 25
+	syscall
+
 	# erase the obstacle and reset
 	sw $zero, 0($t0)			# draw the first column pixel
 	sw $zero, 4($t0)			# draw the pixels for the second column
@@ -566,6 +582,42 @@ setup_health_loop:
 draw_gui_end:
 	jr $ra				# return to caller
 	
+draw_shoot_status:
+	la $t0, SHOOTING_STATUS		# load address of SHOOTING_STATUS
+	la $t1, SHOOTING_AVAIL		# load how many bullets the player can use
+	lw $t1, 0($t1)			
+	li $t2, 0			# setup iterator
+	# set it all to dark yellow
+inactive_shoot_loop:
+	bge $t2, 4, active_shoot
+	sll $t3, $t2, 2			# calculate offset for array
+	add $t4, $t3, $t0		# get address of SHOOT_STATUS[i]
+	lw $t5, 0($t4)			# load SHOOT_STATUS[i]
+	la $t6, BASE_ADDRESS	
+	add $t6, $t6, $t5		# calculate address to the pixel
+	li $t7, DARK_YELLOW		# load the colour DARK_YELLOw
+	sw $t7, 0($t6)			# draw the pixels
+	sw $t7, 128($t6)
+	addi $t2, $t2, 1		# update iterator
+	j inactive_shoot_loop		# jump back to first loop
+active_shoot:
+	li $t2, 0			# reset the iterator
+active_shoot_loop:
+	bge $t2, $t1, draw_shoot_status_end
+	sll $t3, $t2, 2			# calculate offset for array
+	add $t4, $t3, $t0		# get address of SHOOT_STATUS[i]
+	lw $t5, 0($t4)			# load SHOOT_STATUS[i]
+	la $t6, BASE_ADDRESS	
+	add $t6, $t6, $t5		# calculate address to the pixel
+	li $t7, YELLOW2			# load the colour DARK_YELLOw
+	sw $t7, 0($t6)			# draw the pixels
+	sw $t7, 128($t6)
+	addi $t2, $t2, 1		# update iterator
+	j active_shoot_loop		# jump back to first loop
+	
+draw_shoot_status_end:
+	jr $ra
+	
 # reset all values
 RESTART:
 	## reset ship health
@@ -635,6 +687,7 @@ GAME_LOOP:
 	
 	jal update_obs		# update the location of obstacles
 	jal update_shooting	# move the bullets and check for collisions
+	jal draw_shoot_status	# update the status on how many bullets the player can shoot	
 	jal collision_check	# iterate thorugh each obstacle, and checks if it hits the ship
 	
 	li $a0, 0		# call draw_ship(0)
