@@ -32,8 +32,9 @@
 # Any additional information that the TA needs to know: 
 # - (write here, if any)
 #
-#####################################################################	
-.eqv BASE_ADDRESS	0x10008000
+#####################################################################
+	
+.eqv BASE_ADDRESS	0x10008000				# address for framebuffer
 
 ## COLOURS for the ship and the obstacles
 .eqv BLACK		0x000000
@@ -96,7 +97,7 @@ update_obs_loop:
 	li $t7, 0		# set $t7 = 0 and then push to stack
 	sw $t7, 0($sp)
 	
-	jal draw_obs
+	jal draw_obs		# call draw_obs(x,y,0)
 	
 	lw $ra, 0($sp)		# restore $ra
 	addi $sp, $sp, 4
@@ -132,10 +133,6 @@ add_obs:
 	addi $t2, $t2, -1	# set current x = x - 1
 	sw $t2, 0($t0)		# store in array[i]
 	
-	move $a0, $t2		# call draw_obs(x,y,1)
-	move $a1, $t3
-	li $a2, 1
-	
 	# call draw_obs(x,y,s)
 	addi $sp, $sp, -4	# save $t1 to the stack
 	sw $t1, 0($sp)
@@ -150,7 +147,7 @@ add_obs:
 	li $t7, 1		# set $t7 = 1 and then push to stack
 	sw $t7, 0($sp)
 	
-	jal draw_obs
+	jal draw_obs		# call draw_obs(x,y,1)
 	
 	lw $ra, 0($sp)		# restore $ra
 	addi $sp, $sp, 4
@@ -190,8 +187,8 @@ draw_obs:
 	li $t6, LIGHT_GREY
 	j paint_obs
 	
-	# LOAD black to clear the obstacle from the screen
 wipe_obs:
+	# LOAD black to clear the obstacle from the screen
 	li $t5, BLACK
 	li $t6, BLACK
 	
@@ -252,7 +249,7 @@ hit_ship:
 	li $t6, RED
 	j render_ship
 	
-	# remove the ship off the screen
+	# remove the ship off the screen by setting all colours to black
 clear_ship:
 	li $t4, BLACK
 	li $t5, BLACK
@@ -318,6 +315,7 @@ SPAWN_BULLET:
 	sw $t2, 4($t3)
 	j update_shooting_end
 	
+	# MOVE THE SHIP
 GO_UP:	addi $t2, $t2, -2		# y = y - 2
 	j update_ship_array
 	
@@ -347,7 +345,7 @@ update_ship_array:
 	sw $t2, 4($t0)
 
 update_ship_end:
-	jr $ra
+	jr $ra			# return to caller
 	
 collision_check:
 	la $t2, SMALL_OBS_LIST	# $t2 = address of obstacle list
@@ -375,7 +373,7 @@ collision_check_loop:
 	lw $t4, -4($t0)				# load the colour of the adjacent pixel
 	addi $t5, $t0, -4			# pixel for bullet if we are going to erase
 	beq $t4, WHITE, collision_bullet	# if adjacent pixel is white, the obstacle has hit a bullet
-	beq $t4, BLUE, collision_hit		# if the adjacent if pixel is blue, thats means we hit a ship
+	beq $t4, BLUE, collision_ship		# if the adjacent if pixel is blue, thats means we hit a ship
 	
 	# Check the top of the obstacle
 	lw $t4, -128($t0)			
@@ -428,7 +426,7 @@ collision_check_loop:
 	######################################################		
 	
 	j collision_check_update
-collision_hit:
+collision_ship:
 	# save $t0, $t1, $t2, $t3 to the stack
 	addi $sp, $sp, -4	# save $t0
 	sw $t0, 0($sp)
@@ -498,21 +496,21 @@ collision_bullet:
 	sw $t6, 0($t7)				# store it in shooting list
 	
 collision_check_update:
-	addi $t3, $t3, 1	# i = i + 1
-	j collision_check_loop	# jump back to while conditoin
+	addi $t3, $t3, 1			# i = i + 1
+	j collision_check_loop			# jump back to while conditoin
 	
 collision_check_end:
-	addi $sp, $sp, -4	# save $ra
+	addi $sp, $sp, -4			# save $ra
 	sw $ra, 0($sp)
 
 	# call draw_ship(1)
-	li $a0, 1		# call draw_ship(1)
+	li $a0, 1				# call draw_ship(1)
 	jal draw_ship
 	
-	lw $ra, 0($sp)		# restore $ra
+	lw $ra, 0($sp)				# restore $ra
 	addi $sp, $sp, 4
 
-	jr $ra			# return to caller
+	jr $ra					# return to caller
 	
 update_health:
 	############################
@@ -531,16 +529,16 @@ update_health:
 	
 	sw $t1, 0($t0)			# store the new ship health		
 	
-	jr $ra
+	jr $ra				# return to caller
 	
 update_shooting:
-	la $t0, SHOOTING_LIST
-	li $t1, 0			# iterator
+	la $t0, SHOOTING_LIST		# $t0 = array of the coordinates of the bullet
+	li $t1, 0			# intialize iterator
 			
 	# load the contents at index i
 	lw $t4, 0($t0)			# $t4 = x
 	lw $t5, 4($t0) 			# $t4 = y
-	blt $t4, 0, update_shooting_end		# if bullet is not active
+	blt $t4, 0, update_shooting_end		# if bullet is not active (not fired)
 	# CALCULATE THE PIXEL LOCATION OF BULLET
 	sll $t6, $t4, 2		# $t6 = 4x
 	sll $t7, $t5, 7		# $t7 = 128y
@@ -550,8 +548,8 @@ update_shooting:
 	sw $zero, 0($t6)	# undraw the pixel
 	
 	addi $t4, $t4, SHOOTING_SPEED	# x = x + 3
-	# x is out of bounds move to next iteration
-	bgt $t4, 31, bullet_inactive
+	
+	bgt $t4, 31, bullet_inactive	# x is out of bounds make it inactive
 	li $t7, WHITE
 	li $t5, SHOOTING_SPEED
 	sll $t5, $t5, 2			# shooting speed * 4
@@ -560,10 +558,10 @@ update_shooting:
 	sw $t4, 0($t0)			# store new x in array
 	
 update_shooting_end:
-	jr $ra
+	jr $ra				# return to caller
 	
 bullet_inactive:
-	li $t4, -1
+	li $t4, -1			# let x be -1 to indicate it is inactive
 	sw $t4, 0($t0)			# store new x in array
 	j update_shooting_end
 	
@@ -650,7 +648,7 @@ active_shoot_loop:
 	j active_shoot_loop		# jump back to first loop
 	
 draw_shoot_status_end:
-	jr $ra
+	jr $ra				# return to caller
 	
 # reset all values
 RESTART:
