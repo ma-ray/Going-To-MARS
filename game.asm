@@ -14,23 +14,23 @@
 #
 # Which milestones have been reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1/2/3/4 (choose the one the applies)
+# - Milestones 1/2/3/4
 #
 # Which approved features have been implemented for milestone 4?
 # (See the assignment handout for the list of additional features)
-# 1. (fill in the feature, if any)
-# 2. (fill in the feature, if any)
-# 3. (fill in the feature, if any)
-# ... (add more if necessary)
+# 1. Scoring system (counts how many times you shoot an asteroid)
+# 2. Shooting obstacles
+# 3. Smooth graphics
 #
 # Link to video demonstration for final submission:
-# - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
+# - https://www.youtube.com/watch?v=TLwuP3Izxz4
 #
 # Are you OK with us sharing the video with people outside course staff?
-# - yes / no / yes, and please share this project github link as well!
+# - yes, and please share this project github link as well!
+#   https://github.com/ma-ray/Going-To-MARS
 #
 # Any additional information that the TA needs to know: 
-# - (write here, if any)
+# - When you are at the game over screen, you can press Q to end the program or P to restart
 #
 #####################################################################
 	
